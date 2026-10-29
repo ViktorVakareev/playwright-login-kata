@@ -5,3 +5,5 @@ obj/
 TestResults/
 playwright-traces/
 admin-state-*.json
+
+**/Properties/launchSettings.json

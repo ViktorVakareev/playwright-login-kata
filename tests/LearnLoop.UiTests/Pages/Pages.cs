@@ -56,3 +56,35 @@ public sealed class RegisterPage(IPage page)
         await CreateAccountButton.ClickAsync();
     }
 }
+
+/// <summary>
+/// The 3-step sign-up wizard at /join. Located by data-testid: the markup gives each control a stable test hook,
+/// so the tests don't break when labels, wording or styling change.
+/// </summary>
+public sealed class JoinWizardPage(IPage page)
+{
+    public ILocator Email => page.GetByTestId("register-step-1-email");
+    public ILocator ContinueFromEmail => page.GetByTestId("register-step-1-next");
+    public ILocator Password => page.GetByTestId("register-step-2-password");
+    public ILocator ContinueFromPassword => page.GetByTestId("register-step-2-next");
+    public ILocator Name => page.GetByTestId("register-step-3-name");
+    public ILocator DateOfBirth => page.GetByTestId("register-step-3-dob");
+    public ILocator Region => page.GetByTestId("register-step-3-region");
+    public ILocator Plan => page.GetByTestId("register-step-3-tier");
+    public ILocator CreateAccount => page.GetByTestId("register-submit-btn");
+    public ILocator StepIndicator => page.GetByTestId("register-step-indicator");
+    public ILocator StepError => page.GetByTestId("register-error");
+    public ILocator ServerError => page.GetByTestId("register-server-error");
+
+    public Task GotoAsync() => page.GotoAsync("/join");
+
+    public async Task CompleteAsync(string email, string password, string name)
+    {
+        await Email.FillAsync(email);
+        await ContinueFromEmail.ClickAsync();
+        await Password.FillAsync(password);
+        await ContinueFromPassword.ClickAsync();
+        await Name.FillAsync(name);
+        await CreateAccount.ClickAsync();
+    }
+}
