@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <!-- Playwright for .NET settings. Watch the tests run:  dotnet test -- Playwright.LaunchOptions.Headless=false -->
+  <Playwright>
+    <BrowserName>chromium</BrowserName>
+    <ExpectTimeout>5000</ExpectTimeout>
+    <LaunchOptions>
+      <Headless>true</Headless>
+    </LaunchOptions>
+  </Playwright>
+  <NUnit>
+    <NumberOfTestWorkers>4</NumberOfTestWorkers>
+  </NUnit>
+</RunSettings>
