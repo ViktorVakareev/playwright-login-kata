@@ -45,7 +45,7 @@ From a recorded macro to a maintainable UI test suite. A sign-in flow is recorde
 
 ## Run it
 
-Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download) and PowerShell (for Playwright's browser install).
+Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The commands below use PowerShell 7 (`pwsh`); in the built-in Windows PowerShell, call the script directly instead, e.g. `.\tests\LearnLoop.UiTests\bin\Debug\net10.0\playwright.ps1 install chromium`.
 
 ```powershell
 dotnet build

@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace LearnLoop.UiTests.Support;
+namespace LearnLoop.UiTests;   // root namespace on purpose: a [SetUpFixture] only runs for tests in its own namespace and below
 
 /// <summary>
 /// Starts the LearnLoop demo app once for the whole test run, on a free local port.
