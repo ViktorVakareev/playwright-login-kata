@@ -46,7 +46,7 @@ public static class LearnLoopApp
             <section class="hero">
               <h1>Learn at your own pace</h1>
               <p>Short courses, practice questions and progress tracking in one place.</p>
-              <p><a class="button" href="/register">Create a free account</a></p>
+              <p><a class="button" href="/register">Create a free account</a> <a class="button" href="/join">Try the 3-step sign-up</a></p>
             </section>
             """));
 
@@ -67,10 +67,7 @@ public static class LearnLoopApp
                 return LoginPage(ctx, af, returnUrl, result.Error, email, notice: null);
             }
 
-            var identity = new ClaimsIdentity(
-                [new Claim(ClaimTypes.Name, result.User!.Name), new Claim(ClaimTypes.Email, result.User.Email)],
-                CookieAuthenticationDefaults.AuthenticationScheme);
-            await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+            await SignInUserAsync(ctx, result.User!);
             return Results.LocalRedirect(IsLocal(returnUrl) ? returnUrl : "/dashboard");
         });
 
@@ -88,6 +85,28 @@ public static class LearnLoopApp
 
             ctx.Response.StatusCode = 400;
             return RegisterPage(ctx, af, error, name, email);
+        });
+
+        // A 3-step sign-up wizard (email → password → name), with data-testid hooks for test automation.
+        // Each step appears only after the previous one is valid; the server validates everything again on submit.
+        app.MapGet("/join", (HttpContext ctx, IAntiforgery af) => JoinPage(ctx, af, error: null, email: ""));
+
+        app.MapPost("/join", async (HttpContext ctx, IAntiforgery af, UserStore users) =>
+        {
+            await af.ValidateRequestAsync(ctx);
+            var form = await ctx.Request.ReadFormAsync();
+            var email = form["email"].ToString();
+            var name = form["name"].ToString().Trim();
+
+            string? error = name.Length < 2 ? "Name must be at least 2 characters." : null;
+            if (error is null && users.TryRegister(name, email, form["password"].ToString(), out error))
+            {
+                await SignInUserAsync(ctx, users.Find(email.Trim())!);
+                return Results.Redirect("/dashboard");
+            }
+
+            ctx.Response.StatusCode = 400;
+            return JoinPage(ctx, af, error, email);
         });
 
         app.MapGet("/dashboard", (HttpContext ctx, IAntiforgery af) =>
@@ -133,6 +152,82 @@ public static class LearnLoopApp
             </section>
             """);
 
+    private static IResult JoinPage(HttpContext ctx, IAntiforgery af, string? error, string email) =>
+        Page(ctx, af, "Join", $$"""
+            <section class="panel">
+              <h1>Join LearnLoop</h1>
+              <p class="steps" data-testid="register-step-indicator">Step <span id="step-number">1</span> of 3</p>
+              {{(error is null ? "" : $"""<div role="alert" class="error" data-testid="register-server-error">{Html(error)}</div>""")}}
+              <div role="alert" class="error" data-testid="register-error" id="step-error" hidden></div>
+              <form method="post" action="/join" novalidate id="wizard">
+                {{Token(ctx, af)}}
+                <fieldset data-step="1" data-testid="register-step-1">
+                  <label for="email">Email</label>
+                  <input id="email" name="email" type="email" autocomplete="username" value="{{Html(email)}}" data-testid="register-step-1-email">
+                  <button type="button" class="next" data-testid="register-step-1-next">Continue</button>
+                </fieldset>
+                <fieldset data-step="2" data-testid="register-step-2" hidden>
+                  <label for="password">Password</label>
+                  <input id="password" name="password" type="password" autocomplete="new-password" data-testid="register-step-2-password">
+                  <button type="button" class="next" data-testid="register-step-2-next">Continue</button>
+                </fieldset>
+                <fieldset data-step="3" data-testid="register-step-3" hidden>
+                  <label for="name">Name</label>
+                  <input id="name" name="name" autocomplete="name" data-testid="register-step-3-name">
+                  <label for="dob">Date of birth (optional)</label>
+                  <input id="dob" name="dob" type="date" data-testid="register-step-3-dob">
+                  <label for="region">Region (optional)</label>
+                  <select id="region" name="region" data-testid="register-step-3-region">
+                    <option value="">Choose a region</option><option>Europe</option><option>Americas</option><option>Asia Pacific</option>
+                  </select>
+                  <label for="tier">Plan (optional)</label>
+                  <select id="tier" name="tier" data-testid="register-step-3-tier">
+                    <option value="free">Free</option><option value="plus">Plus</option>
+                  </select>
+                  <button type="submit" data-testid="register-submit-btn">Create account</button>
+                </fieldset>
+              </form>
+            </section>
+            <script>
+              (() => {
+                const form = document.getElementById('wizard');
+                const error = document.getElementById('step-error');
+                const rules = {
+                  1: () => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.value.trim()) ? null : 'Enter a valid email address.',
+                  2: () => form.password.value.length >= 8 ? null : 'Password must be at least 8 characters.',
+                  3: () => form.name.value.trim().length >= 2 ? null : 'Name must be at least 2 characters.',
+                };
+                const show = (step) => {
+                  form.querySelectorAll('fieldset').forEach(f => f.hidden = f.dataset.step !== String(step));
+                  document.getElementById('step-number').textContent = step;
+                  form.querySelector(`fieldset[data-step="${step}"] input`).focus();
+                };
+                const check = (step) => {
+                  const message = rules[step]();
+                  error.textContent = message ?? '';
+                  error.hidden = message === null;
+                  return message === null;
+                };
+                let current = 1;
+                const next = () => { if (check(current)) show(++current); };
+                form.querySelectorAll('button.next').forEach(button => button.addEventListener('click', next));
+                // Enter in a field submits the form: on steps 1 and 2 treat it as Continue instead.
+                form.addEventListener('submit', e => {
+                  if (current < 3) { e.preventDefault(); next(); }
+                  else if (!check(3)) e.preventDefault();
+                });
+              })();
+            </script>
+            """);
+
+    private static async Task SignInUserAsync(HttpContext ctx, User user)
+    {
+        var identity = new ClaimsIdentity(
+            [new Claim(ClaimTypes.Name, user.Name), new Claim(ClaimTypes.Email, user.Email)],
+            CookieAuthenticationDefaults.AuthenticationScheme);
+        await ctx.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identity));
+    }
+
     private static IResult RegisterPage(HttpContext ctx, IAntiforgery af, string? error, string name, string email) =>
         Page(ctx, af, "Register", $"""
             <section class="panel">
@@ -174,12 +269,14 @@ public static class LearnLoopApp
                 .panel { max-width: 380px; margin: 0 auto; background: #fff; padding: 28px; border-radius: 10px; box-shadow: 0 2px 10px #0001; }
                 label { display: block; margin-top: 14px; font-weight: 600; }
                 input { width: 100%; box-sizing: border-box; padding: 9px; margin-top: 6px; border: 1px solid #b9bfd0; border-radius: 6px; font-size: 15px; }
-                form button[type=submit]:not(.link), .button { margin-top: 20px; background: #2d3a8c; color: #fff; border: 0; padding: 10px 18px; border-radius: 6px; font-size: 15px; cursor: pointer; text-decoration: none; display: inline-block; }
+                form button[type=submit]:not(.link), form button.next, .button { margin-top: 20px; background: #2d3a8c; color: #fff; border: 0; padding: 10px 18px; border-radius: 6px; font-size: 15px; cursor: pointer; text-decoration: none; display: inline-block; }
                 .inline { display: inline; margin: 0; } .inline button { margin: 0 !important; }
                 .error { background: #fde8e8; color: #9b1c1c; padding: 10px; border-radius: 6px; margin: 12px 0; }
                 .notice { background: #e6f4ea; color: #1e6b34; padding: 10px; border-radius: 6px; margin: 12px 0; }
                 .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
                 .card { background: #fff; padding: 18px; border-radius: 10px; box-shadow: 0 2px 10px #0001; }
+                fieldset { border: 0; padding: 0; margin: 0; } select { width: 100%; padding: 9px; margin-top: 6px; }
+                .steps { color: #4a5168; margin-top: -8px; }
                 .card h2 { font-size: 15px; margin: 0; color: #4a5168; } .stat { font-size: 30px; font-weight: 700; margin: 8px 0 0; }
               </style>
             </head>
