@@ -57,6 +57,19 @@ From a recorded macro to a maintainable UI test suite. A sign-in flow is recorde
 
 **Techniques:** page object model · role and label locators (`GetByRole`, `GetByLabel`) instead of CSS · web-first assertions that wait (`Expect(...).ToHaveTextAsync`) · data-driven `[TestCase]` · boundary values · state reuse with `StorageStateAsync` · tests that create their own data (`UniqueEmail()`) so they run in parallel · traces on failure.
 
+## JSON API (for API-testing practice)
+
+LearnLoop also has a small JSON API under `/api`, used by the local version of the course's *Validate API Responses* Postman lab. No authentication; every error is `{ "error": { "code", "message", "fields"? } }`.
+
+| Endpoint | Returns |
+|---|---|
+| `GET /api/courses?page&pageSize&subject` | 200 `{ courses, pagination }` (20 seeded courses); 400 `validation_error` for a bad page or pageSize |
+| `GET /api/courses/{id}` | 200 `{ course }`; 404 `not_found` |
+| `POST /api/auth/register` | 201 `{ user }`; 400 `validation_error` or `invalid_json`; 409 `email_taken`; 415 `unsupported_media_type` |
+| any other `/api/...` | 404 `route_not_found` |
+
+Users created through the API can sign in on `/login`. Code: `src/LearnLoop.Web/Api.cs`. A Postman collection that tests it (13 requests, 29 assertions, runnable with Newman) is in [`postman/`](postman/README.md).
+
 ## Run it
 
 Needs the [.NET 10 SDK](https://dotnet.microsoft.com/download). The commands below use PowerShell 7 (`pwsh`); in the built-in Windows PowerShell, call the script directly instead, e.g. `.\tests\LearnLoop.UiTests\bin\Debug\net10.0\playwright.ps1 install chromium`.

@@ -1,0 +1,604 @@
+{
+  "info": {
+    "name": "LearnLoop API Tests",
+    "description": "Reference solution for the local version of the 'Validate API Responses' lab. Run against LearnLoop (dotnet run --project src/LearnLoop.Web) on http://localhost:3000.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET Courses",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.expect(pm.response.code).to.eql(200);",
+              "});",
+              "",
+              "pm.test(\"Response body has a courses array\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property(\"courses\");",
+              "    pm.expect(body.courses).to.be.an(\"array\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/courses",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "courses"
+          ]
+        }
+      }
+    },
+    {
+      "name": "POST Register (invalid body)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 400\", function () {",
+              "    pm.expect(pm.response.code).to.eql(400);",
+              "});",
+              "",
+              "pm.test(\"Response reports a validation error\", function () {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body).to.have.property(\"error\");",
+              "    pm.expect(body.error.code).to.eql(\"validation_error\");",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/register",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "api",
+            "auth",
+            "register"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Stretch",
+      "item": [
+        {
+          "name": "S1 GET Courses - time, headers, schema",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Responds in under 500 ms\", function () {",
+                  "    pm.expect(pm.response.responseTime).to.be.below(500);",
+                  "});",
+                  "",
+                  "pm.test(\"Content-Type is JSON\", function () {",
+                  "    pm.response.to.have.header(\"Content-Type\");",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "});",
+                  "",
+                  "const courseSchema = {",
+                  "    type: \"object\",",
+                  "    required: [\"id\", \"title\", \"subject\", \"level\", \"price\"],",
+                  "    properties: {",
+                  "        id: { type: \"string\" },",
+                  "        title: { type: \"string\", minLength: 1 },",
+                  "        subject: { type: \"string\" },",
+                  "        level: { enum: [\"beginner\", \"intermediate\", \"advanced\"] },",
+                  "        price: { type: \"number\", minimum: 0 },",
+                  "        durationHours: { type: \"integer\", minimum: 1 },",
+                  "        rating: { type: \"number\", minimum: 0, maximum: 5 }",
+                  "    }",
+                  "};",
+                  "",
+                  "pm.test(\"Every course matches the course schema\", function () {",
+                  "    pm.response.to.have.jsonSchema({",
+                  "        type: \"object\",",
+                  "        required: [\"courses\", \"pagination\"],",
+                  "        properties: { courses: { type: \"array\", items: courseSchema } }",
+                  "    });",
+                  "});",
+                  "",
+                  "pm.test(\"Default page holds the whole catalogue of 20, ids unique\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.courses).to.have.lengthOf(20);",
+                  "    pm.expect(body.pagination).to.eql({ page: 1, pageSize: 20, total: 20, totalPages: 1 });",
+                  "    const ids = body.courses.map(c => c.id);",
+                  "    pm.expect(new Set(ids).size).to.eql(ids.length);",
+                  "});",
+                  "",
+                  "// Keep one id for the next request (request chaining).",
+                  "pm.collectionVariables.set(\"courseId\", pm.response.json().courses[3].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ]
+            }
+          }
+        },
+        {
+          "name": "S2 GET Courses - page 2 of 5",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"Page 2 of 5 holds 5 courses and the right metadata\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.courses).to.have.lengthOf(5);",
+                  "    pm.expect(body.pagination).to.eql({ page: 2, pageSize: 5, total: 20, totalPages: 4 });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?page=2&pageSize=5",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "2"
+                },
+                {
+                  "key": "pageSize",
+                  "value": "5"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "S3 GET Courses - pageSize=0 rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"pageSize=0 is rejected with 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "pm.test(\"The error names the pageSize field\", function () {",
+                  "    const error = pm.response.json().error;",
+                  "    pm.expect(error.code).to.eql(\"validation_error\");",
+                  "    pm.expect(error.fields.map(f => f.field)).to.include(\"pageSize\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses?pageSize=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses"
+              ],
+              "query": [
+                {
+                  "key": "pageSize",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "S4 GET Course by id (chained)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", () => pm.response.to.have.status(200));",
+                  "",
+                  "pm.test(\"Returns the course saved by the previous request\", function () {",
+                  "    const course = pm.response.json().course;",
+                  "    pm.expect(course.id).to.eql(pm.collectionVariables.get(\"courseId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/{{courseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "{{courseId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "S5 GET Course - unknown id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Unknown id returns 404\", () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test(\"Error code is not_found\", function () {",
+                  "    pm.expect(pm.response.json().error.code).to.eql(\"not_found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/courses/does-not-exist",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "courses",
+                "does-not-exist"
+              ]
+            }
+          }
+        },
+        {
+          "name": "S6 POST Register - exact field errors",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "pm.test(\"Lists exactly the three missing fields, in order\", function () {",
+                  "    const fields = pm.response.json().error.fields;",
+                  "    pm.expect(fields).to.eql([",
+                  "        { field: \"email\", message: \"Required\" },",
+                  "        { field: \"password\", message: \"Required\" },",
+                  "        { field: \"name\", message: \"Required\" }",
+                  "    ]);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "S7 POST Register - bad email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", () => pm.response.to.have.status(400));",
+                  "",
+                  "pm.test(\"Bad email gets its own message, missing fields stay Required\", function () {",
+                  "    const fields = pm.response.json().error.fields;",
+                  "    const byField = Object.fromEntries(fields.map(f => [f.field, f.message]));",
+                  "    pm.expect(byField.email).to.eql(\"Must be a valid email address\");",
+                  "    pm.expect(byField.password).to.eql(\"Required\");",
+                  "    pm.expect(byField.name).to.eql(\"Required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{ \"email\": \"not-an-email\" }",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "S8 POST Register - valid user",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// A new email on every run, so the test can be repeated without \"already registered\".",
+                  "pm.collectionVariables.set(\"newEmail\", `learner.${Date.now()}@example.com`);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", () => pm.response.to.have.status(201));",
+                  "",
+                  "pm.test(\"Echoes the user and never the password\", function () {",
+                  "    const user = pm.response.json().user;",
+                  "    pm.expect(user.email).to.eql(pm.collectionVariables.get(\"newEmail\"));",
+                  "    pm.expect(user.name).to.eql(\"API Learner\");",
+                  "    pm.expect(user).to.not.have.property(\"password\");",
+                  "    pm.expect(pm.response.text()).to.not.include(\"Passw0rd!\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"Passw0rd!\",\n  \"name\": \"API Learner\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "S9 POST Register - duplicate email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Same email again returns 409 Conflict\", () => pm.response.to.have.status(409));",
+                  "",
+                  "pm.test(\"Error code is email_taken\", function () {",
+                  "    pm.expect(pm.response.json().error.code).to.eql(\"email_taken\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{newEmail}}\",\n  \"password\": \"Passw0rd!\",\n  \"name\": \"API Learner\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "S10 POST Register - text body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Non-JSON body returns 415\", () => pm.response.to.have.status(415));",
+                  "",
+                  "pm.test(\"Error code is unsupported_media_type\", function () {",
+                  "    pm.expect(pm.response.json().error.code).to.eql(\"unsupported_media_type\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "text"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "S11 GET unknown API route",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Unknown API route returns 404\", () => pm.response.to.have.status(404));",
+                  "",
+                  "pm.test(\"Still answers in JSON with route_not_found\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/json\");",
+                  "    pm.expect(pm.response.json().error.code).to.eql(\"route_not_found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/nothing-here",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "nothing-here"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "courseId",
+      "value": ""
+    },
+    {
+      "key": "newEmail",
+      "value": ""
+    }
+  ]
+}

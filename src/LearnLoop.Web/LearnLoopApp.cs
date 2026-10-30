@@ -129,6 +129,8 @@ public static class LearnLoopApp
             return Results.Redirect("/");
         });
 
+        app.MapLearnLoopApi();   // JSON API under /api for API-testing practice (see Api.cs)
+
         return app;
     }
 
